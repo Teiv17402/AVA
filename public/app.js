@@ -259,8 +259,7 @@ async function finish() {
   document.getElementById('restartBtn').addEventListener('click', () => location.reload());
   document.getElementById('ctaBtn').addEventListener('click', () => {
     // TODO: replace with your registration URL
-    window.open('https://theallinplan.com/21d-ai-challenge', '_blank');
-  });
+window.open('https://www.skool.com/ai-video-affiliate-9950/classroom', '_blank');  });
 }
 
 // ---------- Boot ----------

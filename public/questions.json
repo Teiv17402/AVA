@@ -1,0 +1,113 @@
+{
+  "intro": "Xin chào! Mình là trợ lý AI của khóa học **21D AI Challenge** 👋\n\nMình sẽ hỏi bạn vài câu ngắn (khoảng 3 phút) để hiểu nhu cầu của bạn và đề xuất lộ trình học AI phù hợp nhất.\n\nSẵn sàng bắt đầu chưa?",
+  "questions": [
+    {
+      "id": "name",
+      "question": "Trước tiên, mình có thể biết tên bạn được không?",
+      "type": "text",
+      "placeholder": "Ví dụ: Minh Anh",
+      "required": true
+    },
+    {
+      "id": "email",
+      "question": "Tuyệt vời {name}! Cho mình xin email của bạn để gửi lộ trình học cá nhân hoá nhé.",
+      "type": "email",
+      "placeholder": "email@example.com",
+      "required": true
+    },
+    {
+      "id": "phone",
+      "question": "Bạn có thể để lại số điện thoại để đội ngũ tư vấn liên hệ khi cần không? (Có thể bỏ qua nếu không tiện)",
+      "type": "tel",
+      "placeholder": "09xx xxx xxx",
+      "required": false
+    },
+    {
+      "id": "occupation",
+      "question": "Hiện tại bạn đang làm công việc gì?",
+      "type": "choice",
+      "options": [
+        "Sinh viên / Học sinh",
+        "Nhân viên văn phòng",
+        "Marketing / Content Creator",
+        "Lập trình viên / Kỹ thuật",
+        "Chủ doanh nghiệp / Kinh doanh tự do",
+        "Freelancer",
+        "Khác"
+      ]
+    },
+    {
+      "id": "ai_level",
+      "question": "Bạn đã từng dùng các công cụ AI (ChatGPT, Gemini, Claude...) chưa?",
+      "type": "choice",
+      "options": [
+        "Chưa bao giờ - hoàn toàn mới",
+        "Có thử qua vài lần nhưng chưa biết tận dụng",
+        "Đã dùng thường xuyên cho công việc",
+        "Khá thành thạo, muốn nâng cao chuyên sâu"
+      ]
+    },
+    {
+      "id": "goal",
+      "question": "Mục tiêu lớn nhất khi học AI của bạn là gì?",
+      "type": "choice",
+      "options": [
+        "Tăng năng suất công việc hiện tại",
+        "Kiếm thêm thu nhập / Làm freelance với AI",
+        "Tự động hoá kinh doanh / doanh nghiệp",
+        "Chuyển nghề / Tìm cơ hội nghề nghiệp mới",
+        "Học cho biết, theo trend"
+      ]
+    },
+    {
+      "id": "pain_point",
+      "question": "Khó khăn lớn nhất khiến bạn chưa thể tự học AI hiệu quả là gì?",
+      "type": "textarea",
+      "placeholder": "Ví dụ: Không biết bắt đầu từ đâu, thiếu thời gian, không có người hướng dẫn..."
+    },
+    {
+      "id": "time_commit",
+      "question": "Bạn có thể dành bao nhiêu thời gian mỗi ngày để học?",
+      "type": "choice",
+      "options": [
+        "Dưới 30 phút",
+        "30 - 60 phút",
+        "1 - 2 tiếng",
+        "Trên 2 tiếng"
+      ]
+    },
+    {
+      "id": "budget",
+      "question": "Ngân sách bạn dự kiến đầu tư cho khoá học AI là bao nhiêu?",
+      "type": "choice",
+      "options": [
+        "Dưới 1 triệu",
+        "1 - 3 triệu",
+        "3 - 5 triệu",
+        "5 - 10 triệu",
+        "Trên 10 triệu - đầu tư nghiêm túc"
+      ]
+    },
+    {
+      "id": "expectation",
+      "question": "Sau 21 ngày tham gia challenge, bạn mong muốn đạt được điều gì cụ thể?",
+      "type": "textarea",
+      "placeholder": "Hãy viết càng cụ thể càng tốt, mình sẽ dùng thông tin này để cá nhân hoá lộ trình cho bạn."
+    },
+    {
+      "id": "channel",
+      "question": "Bạn biết đến 21D AI Challenge qua đâu?",
+      "type": "choice",
+      "options": [
+        "Facebook",
+        "TikTok",
+        "YouTube",
+        "Bạn bè giới thiệu",
+        "Google search",
+        "Khác"
+      ]
+    }
+  ],
+  "outro_loading": "Mình đang phân tích câu trả lời của bạn để đưa ra lộ trình phù hợp nhất...",
+  "outro_success": "🎉 Cảm ơn {name} đã chia sẻ!\n\nMình đã ghi nhận đầy đủ thông tin. Đội ngũ 21D AI Challenge sẽ liên hệ với bạn trong vòng 24h để gửi lộ trình học cá nhân hoá.\n\nDưới đây là phân tích sơ bộ về bạn:"
+}

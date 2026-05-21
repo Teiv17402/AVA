@@ -259,8 +259,7 @@ async function finish() {
   document.getElementById('restartBtn').addEventListener('click', () => location.reload());
   document.getElementById('ctaBtn').addEventListener('click', () => {
     // TODO: replace with your registration URL
-window.open('https://www.skool.com/ai-video-affiliate-9950/classroom', '_blank');  });
-}
+window.open('https://teiv17402.github.io/AVA-Study/login.html?from=test', '_blank');}
 
 // ---------- Boot ----------
 (async function init() {

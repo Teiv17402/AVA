@@ -247,7 +247,7 @@ async function finish() {
   } else {
     addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhưng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
   }
-
+}
   // Final CTA
   const row = document.createElement('div');
   row.className = 'input-row';

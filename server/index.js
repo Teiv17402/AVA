@@ -7,7 +7,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { analyzeInterview } = require('./gemini');
-const { appendInterview } = require('./sheets');
+const { appendInterview } = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,5 +62,5 @@ app.get('*', (_req, res) => {
 app.listen(PORT, () => {
   console.log('Interview bot running on http://localhost:' + PORT);
   console.log('   Gemini key:     ' + (process.env.GEMINI_API_KEY ? 'set' : 'MISSING'));
-  console.log('   Sheets webhook: ' + (process.env.GOOGLE_SHEETS_WEBHOOK_URL ? 'set' : 'MISSING'));
+  console.log('   Supabase:       ' + (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'MISSING'));
 });

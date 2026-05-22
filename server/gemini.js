@@ -47,7 +47,7 @@ async function analyzeInterview(answers) {
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
   const userPrompt = `Thông tin học viên tiềm năng:\n${formatAnswersForPrompt(answers)}\n\nHãy phân tích và đưa ra lộ trình cá nhân hoá theo cấu trúc đã hướng dẫn.`;
 

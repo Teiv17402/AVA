@@ -19,9 +19,26 @@ const state = {
 // ---------- Utilities ----------
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Strict validators
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+// VN phone: bắt đầu 0 hoặc +84, 9-10 số. Đầu số 03/05/07/08/09 (di động) hoặc 02 (cố định)
+const PHONE_RE = /^(?:\+?84|0)(?:3[2-9]|5[2|5|6|8|9]|7[06-9]|8[1-9]|9[0-9]|2[0-9])\d{7}$/;
+
+function syncComposerPadding() {
+  // Đảm bảo nội dung chat không bị composer che mất khi list option dài
+  const h = composerEl.offsetHeight || 80;
+  chatEl.style.paddingBottom = (h + 32) + 'px';
+}
+
 function scrollToBottom() {
   requestAnimationFrame(() => {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    syncComposerPadding();
+    const last = chatEl.lastElementChild;
+    if (last) {
+      last.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
   });
 }
 
@@ -95,11 +112,15 @@ function renderStartButton() {
 
 function renderTextInput(q) {
   clearComposer();
+  const wrap = document.createElement('div');
+  wrap.style.width = '100%';
+
   const row = document.createElement('div');
   row.className = 'input-row';
 
   const isLong = q.type === 'textarea';
   const inputType = q.type === 'email' ? 'email' : q.type === 'tel' ? 'tel' : 'text';
+  const inputMode = q.type === 'tel' ? 'numeric' : q.type === 'email' ? 'email' : 'text';
 
   if (isLong) {
     row.innerHTML = `
@@ -108,26 +129,72 @@ function renderTextInput(q) {
     `;
   } else {
     row.innerHTML = `
-      <input id="answerInput" type="${inputType}" placeholder="${q.placeholder || 'Nhập câu trả lời...'}" autocomplete="off" />
+      <input id="answerInput" type="${inputType}" inputmode="${inputMode}" placeholder="${q.placeholder || 'Nhập câu trả lời...'}" autocomplete="off" />
       <button class="btn" id="sendBtn">Gửi</button>
     `;
   }
-  composerEl.appendChild(row);
+  wrap.appendChild(row);
+  const errEl = document.createElement('div');
+  errEl.className = 'error';
+  errEl.id = 'inputError';
+  errEl.style.display = 'none';
+  wrap.appendChild(errEl);
+  composerEl.appendChild(wrap);
+  syncComposerPadding();
 
   const input = document.getElementById('answerInput');
   const btn = document.getElementById('sendBtn');
   input.focus();
 
+  const showError = (msg) => {
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+    shake(input);
+  };
+  const clearError = () => {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+  };
+  input.addEventListener('input', clearError);
+
   const submit = () => {
-    const val = input.value.trim();
+    let val = input.value.trim();
+
+    // Required check
     if (q.required !== false && !val) {
-      shake(input);
+      showError('Vui lòng nhập thông tin để tiếp tục nhé!');
       return;
     }
-    if (q.type === 'email' && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-      shake(input);
+
+    // Strict EMAIL validation
+    if (q.type === 'email') {
+      if (!val) { showError('Email là bắt buộc để gửi lộ trình.'); return; }
+      if (!EMAIL_RE.test(val)) {
+        showError('Email không đúng định dạng. Ví dụ: ten@gmail.com');
+        return;
+      }
+      val = val.toLowerCase();
+    }
+
+    // Strict PHONE validation (VN)
+    if (q.type === 'tel') {
+      if (!val) { showError('Vui lòng nhập số điện thoại.'); return; }
+      // Loại bỏ space, dash, dấu chấm để check
+      const clean = val.replace(/[\s\-\.\(\)]/g, '');
+      if (!PHONE_RE.test(clean)) {
+        showError('Số điện thoại không hợp lệ. Ví dụ: 0901234567 hoặc +84901234567');
+        return;
+      }
+      val = clean;
+    }
+
+    // Min length for textarea
+    if (q.type === 'textarea' && q.required !== false && val.length < 5) {
+      showError('Hãy chia sẻ chi tiết hơn một chút (ít nhất 5 ký tự).');
       return;
     }
+
+    clearError();
     handleAnswer(q, val || '(bỏ qua)');
   };
 
@@ -152,6 +219,7 @@ function renderChoices(q) {
     wrap.appendChild(btn);
   });
   composerEl.appendChild(wrap);
+  syncComposerPadding();
 }
 
 function shake(el) {
@@ -194,81 +262,4 @@ async function askNext() {
   await botSays(text, 700);
 
   if (q.type === 'choice') renderChoices(q);
-  else renderTextInput(q);
-}
-
-async function handleAnswer(q, value) {
-  state.answers[q.id] = value;
-  addUserMessage(value);
-  clearComposer();
-  updateProgress();
-  state.idx += 1;
-  await delay(400);
-  await askNext();
-}
-
-async function finish() {
-  clearComposer();
-  await botSays(state.outro_loading, 600);
-  const t = showTyping();
-
-  let analysis = null;
-  try {
-    const res = await fetch('/api/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers: state.answers, submittedAt: new Date().toISOString() }),
-    });
-    const data = await res.json();
-    analysis = data.analysis;
-  } catch (err) {
-    console.error('submit failed', err);
-  }
-
-  hideTyping(t);
-
-  const outro = interpolate(state.outro_success, state.answers);
-  addBotMessage(outro);
-
-  if (analysis) {
-    const card = document.createElement('div');
-    card.className = 'msg msg-bot';
-    card.innerHTML = `
-      <div class="avatar">🧠</div>
-      <div class="bubble" style="max-width: 85%;">
-        <div class="success-card">
-          <h3>Phân tích cá nhân hoá</h3>
-          <div class="bubble-text">${renderMarkdownInline(analysis)}</div>
-        </div>
-      </div>
-    `;
-    chatEl.appendChild(card);
-    scrollToBottom();
-  } else {
-    addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhưng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
-  }
-
-  // Final CTA
-  const row = document.createElement('div');
-  row.className = 'input-row';
-  row.innerHTML = `
-    <button class="btn btn-secondary" id="restartBtn" style="flex:1;">Phỏng vấn lại</button>
-    <button class="btn" id="ctaBtn" style="flex:1;">Tham gia ngay</button>
-  `;
-  composerEl.appendChild(row);
-  document.getElementById('restartBtn').addEventListener('click', () => location.reload());
-  document.getElementById('ctaBtn').addEventListener('click', () => {
-    // TODO: replace with your registration URL
-window.open('https://teiv17402.github.io/AVA-Study/login.html?from=test', '_blank');});
-}
-
-// ---------- Boot ----------
-(async function init() {
-  try {
-    await loadQuestions();
-    await showIntro();
-  } catch (err) {
-    console.error(err);
-    addBotMessage('⚠️ Có lỗi khi tải câu hỏi. Vui lòng tải lại trang.');
-  }
-})();
+  else rende

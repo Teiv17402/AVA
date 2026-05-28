@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin · Danh sách Leads — 21D AI Challenge</title>
+  <style>
+    :root {
+      --bg: #0b0d12; --panel: #161b26; --line: #232a3a;
+      --text: #e7ebf3; --muted: #a3acc2; --brand: #7c5cff; --accent: #22d3ee; --ok: #10b981;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 20px;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    .login-card {
+      max-width: 420px; margin: 80px auto; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 16px; padding: 28px;
+    }
+    .login-card h2 { margin: 0 0 12px; font-size: 18px; }
+    input[type="password"], input[type="text"] {
+      width: 100%; padding: 12px 14px; background: #0b0d12;
+      border: 1px solid var(--line); border-radius: 10px; color: var(--text);
+      font-size: 14px; outline: none;
+    }
+    input:focus { border-color: var(--brand); }
+    .btn {
+      background: linear-gradient(135deg, var(--brand), #4f46e5);
+      color: white; border: none; border-radius: 10px;
+      padding: 12px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+      width: 100%; margin-top: 12px;
+    }
+    .btn:hover { opacity: 0.9; }
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
+      align-items: center;
+    }
+    .toolbar input { width: 200px; padding: 8px 12px; font-size: 13px; }
+    .toolbar select { padding: 8px 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+    .toolbar .btn { width: auto; margin: 0; padding: 8px 14px; }
+    .stat-bar { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+    table {
+      width: 100%; border-collapse: collapse; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { background: rgba(124, 92, 255, 0.1); color: var(--accent); font-weight: 600; }
+    tr:hover { background: rgba(255, 255, 255, 0.02); }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      background: rgba(34, 211, 238, 0.15); color: var(--accent);
+      font-size: 11px; font-weight: 600;
+    }
+    .detail-btn {
+      background: transparent; border: 1px solid var(--brand); color: var(--brand);
+      padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    }
+    .modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.7); z-index: 100;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; padding: 24px; max-width: 720px; width: 100%;
+      max-height: 85vh; overflow-y: auto;
+    }
+    .modal-card h3 { margin: 0 0 12px; }
+    .qa { margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; }
+    .qa .label { color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 4px; }
+    .qa .val { color: var(--text); white-space: pre-wrap; line-height: 1.5; }
+    .ai-box { margin-top: 16px; padding: 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; white-space: pre-wrap; line-height: 1.6; font-size: 13px; }
+    .close-btn { float: right; background: transparent; border: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+    .empty { text-align: center; color: var(--muted); padding: 40px; }
+    .err { color: #ff7a7a; background: rgba(255,122,122,0.1); border: 1px solid rgba(255,122,122,0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<div id="loginCard" class="login-card">
+  <h2>🔒 Admin — Xem danh sách lead</h2>
+  <p class="sub">Nhập admin token để xem dữ liệu khách đã phỏng vấn.</p>
+  <input id="tokenInput" type="password" placeholder="Admin token..." />
+  <button class="btn" id="loginBtn">Đăng nhập</button>
+  <div id="loginErr" class="err" style="display:none;margin-top:12px"></div>
+</div>
+
+<div id="dashboard" style="display:none">
+  <h1>📊 Danh sách leads</h1>
+  <div class="sub">Từ bot phỏng vấn 21D AI Challenge</div>
+
+  <div class="toolbar">
+    <input id="searchBox" type="text" placeholder="🔍 Tìm theo tên / email / sđt..." />
+    <select id="daysFilter">
+      <option value="0">Tất cả</option>
+      <option value="1">Hôm nay</option>
+      <option value="7">7 ngày</option>
+      <option value="30">30 ngày</option>
+    </select>
+    <button class="btn" id="refreshBtn">🔄 Tải lại</button>
+    <button class="btn" id="exportBtn" style="background:var(--ok)">📥 Tải CSV</button>
+    <button class="btn" id="logoutBtn" style="background:#555">Đăng xuất</button>
+  </div>
+
+  <div class="stat-bar" id="statBar"></div>
+  <div id="tableWrap"></div>
+</div>
+
+<div class="modal" id="detailModal">
+  <div class="modal-card">
+    <button class="close-btn" onclick="document.getElementById('detailModal').classList.remove('open')">×</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+const LABELS = {
+  name:'Tên', email:'Email', phone:'SĐT', occupation:'Nghề nghiệp',
+  ai_level:'Mức độ AI', goal:'Mục tiêu', pain_point:'Khó khăn',
+  time_commit:'Thời gian/ngày', budget:'Ngân sách', expectation:'Mong muốn 21 ngày',
+  channel:'Biết đến qua'
+};
+let ALL_LEADS = [];
+let TOKEN = localStorage.getItem('avaAdminToken') || '';
+
+if (TOKEN) {
+  document.getElementById('tokenInput').value = TOKEN;
+  tryLogin();
+}
+
+document.getElementById('loginBtn').addEventListener('click', () => {
+  TOKEN = document.getElementById('tokenInput').value.trim();
+  if (!TOKEN) return;
+  localStorage.setItem('avaAdminToken', TOKEN);
+  tryLogin();
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('avaAdminToken');
+  location.reload();
+});
+
+document.getElementById('refreshBtn').addEventListener('click', loadLeads);
+document.getElementById('daysFilter').addEventListener('change', loadLeads);
+document.getElementById('searchBox').addEventListener('input', renderTable);
+document.getElementById('exportBtn').addEventListener('click', exportCsv);
+
+async function tryLogin() {
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/leads?token=' + encodeURIComponent(TOKEN) + '&limit=1');
+    if (res.status === 401) {
+      errEl.textContent = 'Token sai. Vui lòng nhập lại.';
+      errEl.style.display = 'block';
+      localStorage.removeItem('avaAdminToken');
+      return;
+    }
+    document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    await loadLeads();
+  } catch (e) {
+    errEl.textContent = 'Lỗi kết nối: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+async function loadLeads() {
+  const days = document.getElementById('daysFilter').value;
+  document.getElementById('tableWrap').innerHTML = '<div class="empty">Đang tải...</div>';
+  try {
+    const res = await fetch('/api/leads?token=' + encodeURIComponent(TOKEN) + '&days=' + days);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Lỗi không xác định');
+    ALL_LEADS = data.leads || [];
+    renderTable();
+  } catch (e) {
+    document.getElementById('tableWrap').innerHTML = '<div class="err">Lỗi: ' + e.message + '</div>';
+  }
+}
+
+function renderTable() {
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const filtered = ALL_LEADS.filter(l => {
+    if (!q) return true;
+    return (l.name || '').toLowerCase().includes(q) ||
+           (l.email || '').toLowerCase().includes(q) ||
+           (l.phone || '').toLowerCase().includes(q);
+  });
+
+  document.getElementById('statBar').textContent =
+    'Tổng: ' + ALL_LEADS.length + ' lead · Hiển thị: ' + filtered.length;
+
+  if (filtered.length === 0) {
+    document.getElementById('tableWrap').innerHTML = '<div class="empty">Chưa có lead nào.</div>';
+    return;
+  }
+
+  const rows = filtered.map(l => {
+    const a = l.answers || {};
+    return '<tr>' +
+      '<td>' + escapeHtml(formatDate(l.created_at)) + '</td>' +
+      '<td><strong>' + escapeHtml(l.name || '') + '</strong></td>' +
+      '<td>' + escapeHtml(l.email || '') + '</td>' +
+      '<td>' + escapeHtml(l.phone || '') + '</td>' +
+      '<td><span class="badge">' + escapeHtml(a.occupation || '-') + '</span></td>' +
+      '<td>' + escapeHtml(a.budget || '-') + '</td>' +
+      '<td><button class="detail-btn" data-id="' + l.id + '">Xem</button></td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('tableWrap').innerHTML =
+    '<table><thead><tr>' +
+    '<th>Ngày</th><th>Tên</th><th>Email</th><th>SĐT</th><th>Nghề</th><th>Ngân sách</th><th></th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+  document.querySelectorAll('.detail-btn').forEach(btn => {
+    btn.addEventListener('click', () => showDetail(btn.dataset.id));
+  });
+}
+
+function showDetail(id) {
+  const lead = ALL_LEADS.find(l => String(l.id) === String(id));
+  if (!lead) return;
+  const a = lead.answers || {};
+  let html = '<h3>Chi tiết lead #' + lead.id + ' — ' + escapeHtml(lead.name || '') + '</h3>';
+  html += '<div class="sub">' + escapeHtml(formatDate(lead.created_at)) + '</div>';
+
+  Object.keys(LABELS).forEach(key => {
+    if (a[key]) {
+      html += '<div class="qa"><div class="label">' + LABELS[key] + '</div><div class="val">' + escapeHtml(a[key]) + '</div></div>';
+    }
+  });
+
+  if (lead.ai_analysis) {
+    html += '<h4 style="margin-top:20px">🧠 Phân tích AI:</h4><div class="ai-box">' + escapeHtml(lead.ai_analysis) + '</div>';
+  }
+
+  document.getElementById('detailBody').innerHTML = html;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function exportCsv() {
+  if (ALL_LEADS.length === 0) return;
+  const cols = ['created_at','name','email','phone','occupation','ai_level','goal','pain_point','time_commit','budget','expectation','channel','ai_analysis'];
+  const header = cols.join(',');
+  const rows = ALL_LEADS.map(l => {
+    const a = l.answers || {};
+    return cols.map(c => {
+      let v = '';
+      if (c === 'created_at') v = l.created_at || '';
+      else if (c === 'name' || c === 'email' || c === 'phone') v = l[c] || a[c] || '';
+      else if (c === 'ai_analysis') v = l.ai_analysis || '';
+      else v = a[c] || '';
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    }).join(',');
+  }).join('\n');
+  const csv = '﻿' + header + '\n' + rows;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ava-leads-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function formatDate(s) {
+  if (!s) return '';
+  try {
+    const d = new Date(s);
+    return d.toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  } catch { return s; }
+}
+</script>
+</body>
+</html>

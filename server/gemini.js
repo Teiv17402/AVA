@@ -47,20 +47,28 @@ async function analyzeInterview(answers) {
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  // Mặc định dùng 1.5-flash (ổn định, không có thinking mode tốn token)
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const isThinkingModel = /^gemini-2\./.test(model);
 
   const userPrompt = `Thông tin học viên tiềm năng:\n${formatAnswersForPrompt(answers)}\n\nHãy phân tích và đưa ra lộ trình cá nhân hoá theo cấu trúc đã hướng dẫn.`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
+  const generationConfig = {
+    temperature: 0.8,
+    maxOutputTokens: 2048,
+    topP: 0.95,
+  };
+  // Tắt thinking budget cho Gemini 2.x để không tốn tokens vào reasoning, dồn cho output
+  if (isThinkingModel) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
   const body = {
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    generationConfig: {
-      temperature: 0.8,
-      maxOutputTokens: 700,
-      topP: 0.95,
-    },
+    generationConfig,
   };
 
   const res = await fetch(url, {
@@ -70,16 +78,4 @@ async function analyzeInterview(answers) {
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${errText}`);
-  }
-
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('Gemini returned no text');
-  }
-  return text.trim();
-}
-
-module.exports = { analyzeInterview, QUESTION_LABELS };
+   

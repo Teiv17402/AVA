@@ -39,7 +39,6 @@ html, body {
   background: linear-gradient(180deg, transparent, rgba(255,255,255,0.02));
 }
 
-/* Header */
 .header {
   padding: 18px 20px;
   border-bottom: 1px solid var(--line);
@@ -101,9 +100,7 @@ html, body {
   color: var(--muted);
 }
 
-/* Chat */
 .chat {
-  /* padding-bottom được set dynamic bởi syncComposerPadding() để tránh composer đè câu hỏi */
   padding: 24px 20px 200px;
   display: flex;
   flex-direction: column;
@@ -157,7 +154,6 @@ html, body {
 .bubble-text a { color: var(--accent); }
 .msg-user .bubble-text strong { color: #fff; }
 
-/* Typing dots */
 .typing .bubble { padding: 14px 18px; display: inline-flex; gap: 4px; }
 .dot {
   width: 8px;
@@ -169,7 +165,6 @@ html, body {
 .dot:nth-child(2) { animation-delay: 0.2s; }
 .dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* Composer — fixed bottom để KHÔNG đè vào chat container */
 .composer {
   position: fixed;
   left: 50%;
@@ -286,4 +281,20 @@ html, body {
 }
 
 @keyframes slideUp {
-  from { opacit
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 640px) {
+  .header { padding: 14px 16px; }
+  .logo-text { display: none; }
+  .progress-bar { width: 110px; }
+  .chat { padding: 16px 14px 220px; }
+  .bubble { max-width: 85%; font-size: 14.5px; }
+  .composer { padding: 10px 14px env(safe-area-inset-bottom, 10px); max-width: 100%; max-height: 55vh; }
+  .btn { padding: 14px 16px; }
+}

@@ -24,21 +24,29 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function syncComposerPadding() {
   const h = composerEl.offsetHeight || 80;
-  // Add extra safety buffer so bot's latest message never sits under the composer
   const total = h + 60;
+  // Chat padding pushes content up so it's not buried under fixed composer
   chatEl.style.paddingBottom = total + 'px';
-  // Also set scroll-padding so scrollIntoView({block:'end'}) puts msgs ABOVE the composer
-  chatEl.style.scrollPaddingBottom = total + 'px';
+  // Body/html is the actual scroller — set scroll-padding-bottom there for anchor scrolls
+  document.documentElement.style.scrollPaddingBottom = total + 'px';
 }
 
 function scrollToBottom() {
   requestAnimationFrame(() => {
     syncComposerPadding();
     const last = chatEl.lastElementChild;
-    if (last) {
-      last.scrollIntoView({ block: 'end', behavior: 'smooth' });
-    } else {
+    if (!last) {
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return;
+    }
+    // Chat <main> is grid 1fr and extends behind the fixed composer — the BODY is the real scroller.
+    // Compute exact scroll delta so the last message sits 24px above the composer top.
+    const composerH = composerEl.offsetHeight || 80;
+    const lastRect = last.getBoundingClientRect();
+    const targetBottom = window.innerHeight - composerH - 24;
+    const delta = lastRect.bottom - targetBottom;
+    if (Math.abs(delta) > 4) {
+      window.scrollBy({ top: delta, behavior: 'smooth' });
     }
   });
 }
@@ -315,7 +323,7 @@ async function finish() {
     chatEl.appendChild(card);
     scrollToBottom();
   } else {
-    addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhưng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
+    addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhƱng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
   }
 
   const row = document.createElement('div');

@@ -316,7 +316,9 @@ async function finish() {
   syncComposerPadding();
   document.getElementById('restartBtn').addEventListener('click', function () { location.reload(); });
   document.getElementById('ctaBtn').addEventListener('click', function () {
-    window.open('https://teiv17402.github.io/AVA-Study/login.html?from=test', '_blank');
+    const name = encodeURIComponent(state.answers.name || '');
+    const email = encodeURIComponent(state.answers.email || '');
+    window.open('https://arado.ink/from-bot.html?name=' + name + '&email=' + email + '&from=bot', '_blank');
   });
 }
 

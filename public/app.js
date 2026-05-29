@@ -24,7 +24,11 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function syncComposerPadding() {
   const h = composerEl.offsetHeight || 80;
-  chatEl.style.paddingBottom = (h + 32) + 'px';
+  // Add extra safety buffer so bot's latest message never sits under the composer
+  const total = h + 60;
+  chatEl.style.paddingBottom = total + 'px';
+  // Also set scroll-padding so scrollIntoView({block:'end'}) puts msgs ABOVE the composer
+  chatEl.style.scrollPaddingBottom = total + 'px';
 }
 
 function scrollToBottom() {
@@ -147,7 +151,10 @@ function renderTextInput(q) {
   errEl.style.display = 'none';
   wrap.appendChild(errEl);
   composerEl.appendChild(wrap);
-  syncComposerPadding();
+  requestAnimationFrame(() => {
+    syncComposerPadding();
+    requestAnimationFrame(() => scrollToBottom());
+  });
 
   const input = document.getElementById('answerInput');
   const btn = document.getElementById('sendBtn');
@@ -223,7 +230,11 @@ function renderChoices(q) {
     wrap.appendChild(btn);
   });
   composerEl.appendChild(wrap);
-  syncComposerPadding();
+  // Wait for layout, sync padding, then scroll the latest bot message into view
+  requestAnimationFrame(() => {
+    syncComposerPadding();
+    requestAnimationFrame(() => scrollToBottom());
+  });
 }
 
 async function loadQuestions() {
@@ -334,5 +345,12 @@ async function finish() {
 
 window.addEventListener('resize', function () { syncComposerPadding(); });
 if (typeof ResizeObserver !== 'undefined') {
-  new ResizeObserver(function () { syncComposerPadding(); }).observe(composerEl);
+  let lastH = 0;
+  new ResizeObserver(function () {
+    syncComposerPadding();
+    const nh = composerEl.offsetHeight || 0;
+    // If composer just grew taller (e.g., choices appeared), re-anchor the chat to the latest message
+    if (nh > lastH + 20) scrollToBottom();
+    lastH = nh;
+  }).observe(composerEl);
 }

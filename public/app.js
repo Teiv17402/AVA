@@ -20,6 +20,51 @@ const state = {
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_RE = /^(?:\+?84|0)(?:3[2-9]|5[2|5|6|8|9]|7[06-9]|8[1-9]|9[0-9]|2[0-9])\d{7}$/;
 
+// Anti-lazy: detect tra-loi-qua-loa
+function isLazyAnswer(val, opts) {
+  const minLen = opts?.minLen || 15;
+  const minWords = opts?.minWords || 3;
+  if (!val) return 'Vui long tra loi day du de minh tu van chinh xac nhe!';
+  const v = String(val).trim().toLowerCase();
+  if (v.length < minLen) return 'Cau tra loi qua ngan. Hay chia se cu the hon (it nhat ' + minLen + ' ky tu).';
+  const words = v.split(/\s+/).filter(w => w.length > 0);
+  if (words.length < minWords) return 'Hay viet day du hon, it nhat ' + minWords + ' tu.';
+  const flat = v.replace(/\s+/g, '');
+  // All same char: "aaaaa", "11111"
+  if (/^(.)\1+$/.test(flat)) return 'Cau tra loi nhin nhu danh dai phim. Ban viet that long nhe!';
+  // Only digits / symbols
+  if (/^[\d\s\.\?\!\-_=*,;:]+$/.test(v)) return 'Vui long mo ta bang chu, dung chi go so/dau cau.';
+  // Common lazy phrases (vi - khong dau)
+  const lazyExact = [
+    'khong biet','k biet','ko biet','chang biet','chua biet','khong ro','khong co',
+    'khong co gi','khong biet nua','binh thuong','tuy','sao cung duoc','cung duoc',
+    'abc','xyz','asdf','qwerty','test','aaaa','bbbb','1234','12345','...','.....',
+    'no','yes','ok','okay','co','khong','chua','chua co','sao','gi','nope','idk',
+  ];
+  if (lazyExact.includes(v) || lazyExact.includes(flat)) return 'Cau tra loi qua chung chung. Hay chia se cu the hon nhe!';
+  // Keyboard mashing detect: 3+ chars but no real word structure (no vowel)
+  if (flat.length < 8 && !/[aeiouy]/i.test(flat)) return 'Hay viet day du tieng Viet hoac tieng Anh nhe.';
+  return null; // OK
+}
+
+function isLazyName(val) {
+  if (!val) return 'Vui long nhap ten cua ban.';
+  const v = val.trim();
+  if (v.length < 2) return 'Ten qua ngan. Vui long nhap day du ten cua ban.';
+  // Must contain at least 1 letter (kept simple, allow Vietnamese diacritics)
+  if (!/[a-zA-ZaAcCdDeEgGhHiIkKlLmMnNoOpPqQrRsStTuUvVxXyYbBfFjJwWzZáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]/.test(v)) {
+    return 'Ten phai co it nhat 1 chu cai.';
+  }
+  const vlow = v.toLowerCase();
+  const lazyNames = ['abc','xyz','asd','asdf','qwe','qwerty','test','aaa','bbb','xxx','aaaaa','no name','idk','khong','khong co','blah','none','---'];
+  if (lazyNames.includes(vlow)) return 'Ten khong hop le. Vui long nhap ten that.';
+  if (/^(.)\1{2,}$/.test(vlow.replace(/\s+/g,''))) return 'Ten qua chung chung. Vui long nhap ten that.';
+  // Pure digits
+  if (/^\d+$/.test(vlow)) return 'Ten khong duoc chi la so.';
+  return null;
+}
+
+
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function syncComposerPadding() {
@@ -208,9 +253,15 @@ function renderTextInput(q) {
       val = clean;
     }
 
-    if (q.type === 'textarea' && q.required !== false && val.length < 5) {
-      showError('Hãy chia sẻ chi tiết hơn một chút (ít nhất 5 ký tự).');
-      return;
+    if (q.type === 'textarea' && q.required !== false) {
+      const lazyMsg = isLazyAnswer(val, { minLen: 15, minWords: 3 });
+      if (lazyMsg) { showError(lazyMsg); return; }
+    }
+
+    // Name field: stricter check (must look like a real name)
+    if (q.id === 'name') {
+      const nameMsg = isLazyName(val);
+      if (nameMsg) { showError(nameMsg); return; }
     }
 
     clearError();
@@ -323,7 +374,7 @@ async function finish() {
     chatEl.appendChild(card);
     scrollToBottom();
   } else {
-    addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhƱng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
+    addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhưng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
   }
 
   const row = document.createElement('div');

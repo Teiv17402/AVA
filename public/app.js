@@ -297,6 +297,7 @@ async function finish() {
   const t = showTyping();
 
   let analysis = null;
+  let segment = 'newbie';
   try {
     const res = await fetch('/api/submit', {
       method: 'POST',
@@ -305,9 +306,11 @@ async function finish() {
     });
     const data = await res.json();
     analysis = data.analysis;
+    if (data.segment === 'intermediate' || data.segment === 'newbie') segment = data.segment;
   } catch (err) {
     console.error('submit failed', err);
   }
+  state.segment = segment;
 
   hideTyping(t);
 
@@ -330,11 +333,56 @@ async function finish() {
     addBotMessage('⚠️ Không thể tạo phân tích AI lúc này, nhưng thông tin của bạn đã được lưu lại. Đội ngũ sẽ liên hệ sớm!');
   }
 
+  // === SEGMENT CTA (Phase 3) — 1 CTA chính phù hợp với segment ===
+  const userName = state.answers.name || 'bạn';
+  const ctaConfig = (segment === 'intermediate') ? {
+    headline: '🎬 Bạn đã sẵn sàng tăng tốc!',
+    desc: 'Với kinh nghiệm hiện có, lộ trình phù hợp nhất là khóa <b>Affiliate Quốc Tế</b> — học bài bản để bắt đầu kiếm tiền từ AI Video.',
+    ctaText: '🚀 Vào khóa Affiliate Quốc Tế (giảm 30%)',
+    badge: '⏰ Còn 7 chỗ giảm giá tháng 6 — hết là về giá gốc',
+    testimonials: [
+      { name: 'Duyên', meta: 'Marketing', quote: '"Sau 3 tuần, video đầu tiên đạt 1.2M view + 47 đơn affiliate."' },
+      { name: 'Thương', meta: 'Freelancer', quote: '"Doanh thu affiliate tháng đầu: 18 triệu. Khóa quá đáng tiền."' }
+    ]
+  } : {
+    headline: '🎯 Lộ trình hoàn hảo cho người mới',
+    desc: 'Bạn nên bắt đầu với <b>Challenge 21 ngày MIỄN PHÍ</b> — học từ con số 0, đồng hành mỗi ngày, không áp lực.',
+    ctaText: '🎁 Tham gia Challenge 21 ngày FREE',
+    badge: '⏰ Còn 12 chỗ Challenge tháng 6 — đăng ký miễn phí',
+    testimonials: [
+      { name: 'Nhung', meta: 'Mẹ bỉm sữa', quote: '"Mình chưa biết gì về AI mà sau 21 ngày làm được video đầu tiên!"' },
+      { name: 'Lý', meta: 'Nhân viên VP', quote: '"Tham gia free mà như học khóa cao cấp — mentor sát quá trời."' }
+    ]
+  };
+
+  // Render segment card
+  const segCard = document.createElement('div');
+  segCard.className = 'msg msg-bot';
+  segCard.innerHTML =
+    '<div class="avatar">🚀</div>' +
+    '<div class="bubble" style="max-width:88%">' +
+    '<div class="success-card" style="background:linear-gradient(135deg, rgba(212,175,110,0.20), rgba(212,175,110,0.04));border:1px solid rgba(212,175,110,0.4);padding:18px;border-radius:12px">' +
+    '<h3 style="color:#d4af6e;margin:0 0 6px;font-size:17px">' + ctaConfig.headline + '</h3>' +
+    '<p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#ddd">' + ctaConfig.desc + '</p>' +
+    '<div style="background:rgba(255,180,90,0.12);border-left:3px solid #ffb45a;padding:8px 12px;border-radius:4px;font-size:12px;color:#ffd9a5;margin-bottom:14px">' + ctaConfig.badge + '</div>' +
+    '<div style="display:flex;gap:8px;flex-direction:column">' +
+    ctaConfig.testimonials.map(function(t) {
+      var initial = t.name.charAt(0).toUpperCase();
+      return '<div style="background:rgba(255,255,255,0.04);padding:8px 10px;border-radius:6px;font-size:12px;line-height:1.5;display:flex;gap:8px;align-items:flex-start">' +
+        '<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#ffd60a,#d4af6e);color:#1a1400;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">' + initial + '</div>' +
+        '<div><div style="font-weight:600;color:#d4af6e">' + t.name + ' · ' + t.meta + '</div>' +
+        '<div style="color:#bbb">' + t.quote + '</div></div></div>';
+    }).join('') +
+    '</div>' +
+    '</div></div>';
+  chatEl.appendChild(segCard);
+  scrollToBottom();
+
   const row = document.createElement('div');
   row.className = 'input-row';
   row.innerHTML =
     '<button class="btn btn-secondary" id="restartBtn" style="flex:1;">Phỏng vấn lại</button>' +
-    '<button class="btn" id="ctaBtn" style="flex:1;">Tham gia ngay</button>';
+    '<button class="btn" id="ctaBtn" style="flex:2;">' + ctaConfig.ctaText + '</button>';
   composerEl.appendChild(row);
   syncComposerPadding();
   document.getElementById('restartBtn').addEventListener('click', function () { location.reload(); });
@@ -353,7 +401,7 @@ async function finish() {
       const r = await fetch('/api/grant-arado-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, name: name })
+        body: JSON.stringify({ email: email, name: name, segment: state.segment || 'newbie' })
       });
       const j = await r.json();
       if (j.ok) {

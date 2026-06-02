@@ -338,10 +338,56 @@ async function finish() {
   composerEl.appendChild(row);
   syncComposerPadding();
   document.getElementById('restartBtn').addEventListener('click', function () { location.reload(); });
-  document.getElementById('ctaBtn').addEventListener('click', function () {
-    const name = encodeURIComponent(state.answers.name || '');
-    const email = encodeURIComponent(state.answers.email || '');
-    window.open('https://arado.ink/from-bot.html?name=' + name + '&email=' + email + '&from=bot', '_blank');
+  document.getElementById('ctaBtn').addEventListener('click', async function () {
+    const btn = this;
+    const name = state.answers.name || '';
+    const email = state.answers.email || '';
+    if (!email) {
+      // Fallback nếu thiếu email
+      window.open('https://arado.ink', '_blank');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang gửi link đăng nhập...';
+    try {
+      const r = await fetch('/api/grant-arado-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, name: name })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        const success = document.createElement('div');
+        success.className = 'msg msg-bot';
+        success.innerHTML =
+          '<div class="avatar">🚀</div>' +
+          '<div class="bubble" style="max-width:88%">' +
+          '<div class="success-card" style="background:linear-gradient(135deg, rgba(212,175,110,0.18), rgba(212,175,110,0.05));border:1px solid rgba(212,175,110,0.35);padding:18px;border-radius:12px">' +
+          '<h3 style="color:#d4af6e;margin:0 0 8px;font-size:18px">📧 Đã gửi link đăng nhập!</h3>' +
+          '<p style="margin:0 0 10px;font-size:14px;line-height:1.6">' +
+          'Mình vừa gửi <b>link đăng nhập tự động</b> vào email <b>' + email + '</b>.<br>' +
+          'Bấm vào link đó → <b>vào dashboard AVA Study ngay</b>, không cần tạo mật khẩu.' +
+          '</p>' +
+          '<p style="margin:0;font-size:12px;color:#999">⏰ Link có hiệu lực 1 giờ. Check inbox + Spam nhé!</p>' +
+          '</div></div>';
+        chatEl.appendChild(success);
+        const row = btn.closest('.input-row');
+        if (row) row.remove();
+        scrollToBottom();
+      } else {
+        btn.disabled = false;
+        btn.textContent = '🔄 Thử lại';
+        const err = document.createElement('div');
+        err.style.cssText = 'color:#ef4444;font-size:13px;margin-top:10px;text-align:center';
+        err.textContent = '❌ ' + (j.error || 'Lỗi gửi link');
+        const row = btn.closest('.input-row');
+        if (row && row.parentElement) row.parentElement.insertBefore(err, row.nextSibling);
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Thử lại';
+      addBotMessage('⚠️ Lỗi mạng: ' + e.message + '. Bạn có thể vào trực tiếp arado.ink');
+    }
   });
 }
 

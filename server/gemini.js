@@ -22,9 +22,20 @@ function formatAnswersForPrompt(answers) {
 
 const SYSTEM_PROMPT = `Bạn là cố vấn học AI cao cấp của khóa "21D AI Challenge" - chương trình 21 ngày làm chủ AI cho người Việt.
 
-Nhiệm vụ: Đọc thông tin phỏng vấn của một học viên tiềm năng và đưa ra phân tích cá nhân hoá NGẮN GỌN, CỤ THỂ, ẤM ÁP bằng tiếng Việt.
+Nhiệm vụ: Đọc thông tin phỏng vấn của một học viên tiềm năng. Trả về CHỈ JSON hợp lệ (không có code fence, không có text thừa) theo format chính xác:
 
-Cấu trúc bắt buộc của câu trả lời (dùng markdown nhẹ với **bold**, không dùng heading #):
+{
+  "segment": "newbie" | "intermediate",
+  "analysis": "<markdown analysis text>"
+}
+
+QUY TẮC PHÂN LOẠI segment:
+- "newbie" — Chưa từng dùng AI HOẶC mới thử qua vài lần HOẶC ngân sách dưới 3 triệu HOẶC mục tiêu "Học cho biết, theo trend"/"Tăng năng suất công việc hiện tại"
+- "intermediate" — Đã dùng AI thường xuyên/khá thành thạo VÀ mục tiêu "Kiếm thêm thu nhập"/"Tự động hoá kinh doanh"/"Chuyển nghề" VÀ ngân sách 3 triệu trở lên
+
+Khi không chắc → ưu tiên "newbie".
+
+Cấu trúc bắt buộc trong field "analysis" (markdown nhẹ với **bold**, KHÔNG dùng heading #, dùng \\n cho xuống dòng):
 
 **🎯 Hồ sơ của bạn:** (1-2 câu tóm tắt người này là ai, đang ở đâu trên hành trình AI)
 
@@ -35,12 +46,12 @@ Cấu trúc bắt buộc của câu trả lời (dùng markdown nhẹ với **bo
 **🎁 Quà tặng cá nhân:** (Gợi ý 1 công cụ AI miễn phí cụ thể họ có thể thử ngay hôm nay phù hợp với nghề của họ)
 
 YÊU CẦU:
-- Tổng độ dài: 150-220 từ
+- "analysis" tổng độ dài: 150-220 từ
 - Xưng "bạn", không xưng "anh/chị"
 - Cụ thể, không nói chung chung
 - Không hứa hẹn quá đà về thu nhập
-- Nếu họ chọn "Học cho biết, theo trend" - vẫn nhiệt tình, không phán xét
-- Nếu ngân sách "Dưới 1 triệu" - đề xuất gói khởi đầu, không ép buộc`;
+
+CHÚ Ý: Output PHẢI là JSON đơn lẻ hợp lệ, KHÔNG có text trước/sau, KHÔNG có \`\`\`. Field "analysis" là 1 string duy nhất chứa markdown (escape \\n cho xuống dòng).`;
 
 async function analyzeInterview(answers) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -78,4 +89,44 @@ async function analyzeInterview(answers) {
   });
 
   if (!res.ok) {
-   
+    const errText = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json();
+  const candidate = data?.candidates?.[0];
+  const parts = candidate?.content?.parts || [];
+  // Ghép TẤT CẢ các parts (Gemini 2.x đôi khi trả về nhiều parts: thinking + answer)
+  const text = parts.map(p => p?.text || '').filter(Boolean).join('').trim();
+
+  if (!text) {
+    console.error('[gemini] empty response, finishReason:', candidate?.finishReason, 'parts:', JSON.stringify(parts));
+    throw new Error('Gemini returned no text (finishReason: ' + (candidate?.finishReason || 'unknown') + ')');
+  }
+  if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+    console.warn('[gemini] truncated, finishReason:', candidate.finishReason, 'length:', text.length);
+  }
+
+  // Parse JSON output: { segment, analysis }
+  let cleaned = text.trim();
+  // Strip markdown code fence if Gemini included it
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (e) {
+    // Fallback: try extract JSON object from anywhere in text
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch (_) {}
+    }
+  }
+  if (!parsed || typeof parsed.analysis !== 'string') {
+    console.warn('[gemini] JSON parse fail, returning raw text. Snippet:', cleaned.slice(0, 200));
+    return { segment: 'newbie', analysis: cleaned };
+  }
+  const segment = (parsed.segment === 'intermediate') ? 'intermediate' : 'newbie';
+  return { segment, analysis: parsed.analysis };
+}
+
+module.exports = { analyzeInterview, QUESTION_LABELS };

@@ -20,51 +20,6 @@ const state = {
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_RE = /^(?:\+?84|0)(?:3[2-9]|5[2|5|6|8|9]|7[06-9]|8[1-9]|9[0-9]|2[0-9])\d{7}$/;
 
-// Anti-lazy: detect tra-loi-qua-loa
-function isLazyAnswer(val, opts) {
-  const minLen = opts?.minLen || 15;
-  const minWords = opts?.minWords || 3;
-  if (!val) return 'Vui long tra loi day du de minh tu van chinh xac nhe!';
-  const v = String(val).trim().toLowerCase();
-  if (v.length < minLen) return 'Cau tra loi qua ngan. Hay chia se cu the hon (it nhat ' + minLen + ' ky tu).';
-  const words = v.split(/\s+/).filter(w => w.length > 0);
-  if (words.length < minWords) return 'Hay viet day du hon, it nhat ' + minWords + ' tu.';
-  const flat = v.replace(/\s+/g, '');
-  // All same char: "aaaaa", "11111"
-  if (/^(.)\1+$/.test(flat)) return 'Cau tra loi nhin nhu danh dai phim. Ban viet that long nhe!';
-  // Only digits / symbols
-  if (/^[\d\s\.\?\!\-_=*,;:]+$/.test(v)) return 'Vui long mo ta bang chu, dung chi go so/dau cau.';
-  // Common lazy phrases (vi - khong dau)
-  const lazyExact = [
-    'khong biet','k biet','ko biet','chang biet','chua biet','khong ro','khong co',
-    'khong co gi','khong biet nua','binh thuong','tuy','sao cung duoc','cung duoc',
-    'abc','xyz','asdf','qwerty','test','aaaa','bbbb','1234','12345','...','.....',
-    'no','yes','ok','okay','co','khong','chua','chua co','sao','gi','nope','idk',
-  ];
-  if (lazyExact.includes(v) || lazyExact.includes(flat)) return 'Cau tra loi qua chung chung. Hay chia se cu the hon nhe!';
-  // Keyboard mashing detect: 3+ chars but no real word structure (no vowel)
-  if (flat.length < 8 && !/[aeiouy]/i.test(flat)) return 'Hay viet day du tieng Viet hoac tieng Anh nhe.';
-  return null; // OK
-}
-
-function isLazyName(val) {
-  if (!val) return 'Vui long nhap ten cua ban.';
-  const v = val.trim();
-  if (v.length < 2) return 'Ten qua ngan. Vui long nhap day du ten cua ban.';
-  // Must contain at least 1 letter (kept simple, allow Vietnamese diacritics)
-  if (!/[a-zA-ZaAcCdDeEgGhHiIkKlLmMnNoOpPqQrRsStTuUvVxXyYbBfFjJwWzZáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]/.test(v)) {
-    return 'Ten phai co it nhat 1 chu cai.';
-  }
-  const vlow = v.toLowerCase();
-  const lazyNames = ['abc','xyz','asd','asdf','qwe','qwerty','test','aaa','bbb','xxx','aaaaa','no name','idk','khong','khong co','blah','none','---'];
-  if (lazyNames.includes(vlow)) return 'Ten khong hop le. Vui long nhap ten that.';
-  if (/^(.)\1{2,}$/.test(vlow.replace(/\s+/g,''))) return 'Ten qua chung chung. Vui long nhap ten that.';
-  // Pure digits
-  if (/^\d+$/.test(vlow)) return 'Ten khong duoc chi la so.';
-  return null;
-}
-
-
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function syncComposerPadding() {
@@ -241,6 +196,10 @@ function renderTextInput(q) {
         return;
       }
       val = val.toLowerCase();
+      // OTP: gửi mã + show OTP input, chỉ proceed sau khi verified
+      clearError();
+      requestOtpAndVerify(val, q, btn);
+      return; // chặn handleAnswer ở dưới — sẽ gọi từ trong OTP flow
     }
 
     if (q.type === 'tel') {
@@ -253,15 +212,9 @@ function renderTextInput(q) {
       val = clean;
     }
 
-    if (q.type === 'textarea' && q.required !== false) {
-      const lazyMsg = isLazyAnswer(val, { minLen: 15, minWords: 3 });
-      if (lazyMsg) { showError(lazyMsg); return; }
-    }
-
-    // Name field: stricter check (must look like a real name)
-    if (q.id === 'name') {
-      const nameMsg = isLazyName(val);
-      if (nameMsg) { showError(nameMsg); return; }
+    if (q.type === 'textarea' && q.required !== false && val.length < 5) {
+      showError('Hãy chia sẻ chi tiết hơn một chút (ít nhất 5 ký tự).');
+      return;
     }
 
     clearError();
@@ -412,4 +365,156 @@ if (typeof ResizeObserver !== 'undefined') {
     if (nh > lastH + 20) scrollToBottom();
     lastH = nh;
   }).observe(composerEl);
+}
+
+// ============================================
+// OTP EMAIL VERIFICATION
+// ============================================
+async function requestOtpAndVerify(email, emailQ, sendBtn) {
+  // Disable original Send button while sending OTP
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳ Đang gửi OTP...'; }
+  let r, j;
+  try {
+    r = await fetch('/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    j = await r.json();
+  } catch (e) {
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Gửi'; }
+    const errEl = document.getElementById('inputError');
+    if (errEl) { errEl.textContent = 'Lỗi mạng: ' + e.message; errEl.style.display = 'block'; }
+    return;
+  }
+  if (!j.ok) {
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Gửi'; }
+    const errEl = document.getElementById('inputError');
+    if (errEl) { errEl.textContent = j.error || 'Không gửi được OTP'; errEl.style.display = 'block'; }
+    return;
+  }
+  // Lưu email tạm
+  state.answers[emailQ.id] = email;
+  addUserMessage(email);
+  clearComposer();
+  await botSays('📧 Mình vừa gửi <b>mã 6 số</b> vào <b>' + email + '</b>. Check inbox (hoặc thư mục Spam/Promotions) và nhập mã dưới đây để xác thực nhé. Mã có hiệu lực <b>5 phút</b>.', 600);
+  renderOtpInput(email, emailQ);
+}
+
+function renderOtpInput(email, emailQ) {
+  clearComposer();
+  const wrap = document.createElement('div');
+  wrap.style.width = '100%';
+  const row = document.createElement('div');
+  row.className = 'input-row';
+  row.innerHTML =
+    '<input id="otpInput" type="text" inputmode="numeric" maxlength="6" placeholder="Nhập 6 số" ' +
+    'autocomplete="one-time-code" style="font-size:22px;letter-spacing:8px;text-align:center" />' +
+    '<button class="btn" id="otpSubmitBtn">Xác thực</button>';
+  wrap.appendChild(row);
+
+  const meta = document.createElement('div');
+  meta.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px';
+  meta.innerHTML =
+    '<span id="otpStatus" style="color:#888"></span>' +
+    '<button id="otpResendBtn" style="background:none;border:none;color:#d4af6e;cursor:pointer;font-size:13px;font-weight:600" disabled>Gửi lại (60s)</button>';
+  wrap.appendChild(meta);
+
+  composerEl.appendChild(wrap);
+  requestAnimationFrame(() => { syncComposerPadding(); scrollToBottom(); });
+
+  const input = document.getElementById('otpInput');
+  const btn = document.getElementById('otpSubmitBtn');
+  const statusEl = document.getElementById('otpStatus');
+  const resendBtn = document.getElementById('otpResendBtn');
+  input.focus();
+
+  // Cooldown 60s cho nút "Gửi lại"
+  function startCooldown() {
+    let n = 60;
+    resendBtn.disabled = true;
+    resendBtn.textContent = 'Gửi lại (' + n + 's)';
+    const t = setInterval(() => {
+      n--;
+      if (n <= 0) { clearInterval(t); resendBtn.disabled = false; resendBtn.textContent = '🔄 Gửi lại mã'; }
+      else { resendBtn.textContent = 'Gửi lại (' + n + 's)'; }
+    }, 1000);
+  }
+  startCooldown();
+
+  async function submitOtp() {
+    const code = (input.value || '').trim();
+    if (!/^\d{6}$/.test(code)) {
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = '⚠ Nhập đúng 6 số';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    statusEl.style.color = '#888';
+    statusEl.textContent = 'Đang xác thực...';
+    let j;
+    try {
+      const r = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+      j = await r.json();
+    } catch (e) {
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = '⚠ Lỗi mạng';
+      btn.disabled = false; btn.textContent = 'Xác thực';
+      return;
+    }
+    if (!j.ok) {
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = '❌ ' + (j.error || 'Sai mã');
+      shake(input);
+      btn.disabled = false; btn.textContent = 'Xác thực';
+      input.select();
+      return;
+    }
+    // Pass — đi tiếp câu tiếp theo
+    clearComposer();
+    addUserMessage('✓ Đã xác thực email');
+    state.answers._email_verified = true;
+    state.idx += 1;
+    updateProgress();
+    setTimeout(() => askNext(), 400);
+  }
+
+  btn.addEventListener('click', submitOtp);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submitOtp(); });
+
+  resendBtn.addEventListener('click', async () => {
+    if (resendBtn.disabled) return;
+    resendBtn.disabled = true;
+    resendBtn.textContent = 'Đang gửi...';
+    statusEl.style.color = '#888';
+    statusEl.textContent = 'Đang gửi mã mới...';
+    try {
+      const r = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        statusEl.style.color = '#16a34a';
+        statusEl.textContent = '✓ Đã gửi mã mới';
+        startCooldown();
+      } else {
+        statusEl.style.color = '#ef4444';
+        statusEl.textContent = '⚠ ' + (j.error || 'Lỗi');
+        resendBtn.disabled = false;
+        resendBtn.textContent = '🔄 Thử lại';
+      }
+    } catch (e) {
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = '⚠ Lỗi mạng';
+      resendBtn.disabled = false;
+      resendBtn.textContent = '🔄 Thử lại';
+    }
+  });
 }

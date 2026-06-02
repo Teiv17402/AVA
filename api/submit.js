@@ -5,6 +5,39 @@
 const { analyzeInterview } = require('../server/gemini');
 const { appendInterview } = require('../server/supabase');
 
+// Rule-based segment classifier — deterministic, không phụ thuộc Gemini
+function classifySegment(answers) {
+  const goal = String(answers.goal || '').toLowerCase();
+  const aiLevel = String(answers.ai_level || '').toLowerCase();
+  const budget = String(answers.budget || '').toLowerCase();
+
+  // Intermediate signals
+  const goalIntermediate = (
+    goal.includes('kiếm thêm thu nhập') ||
+    goal.includes('làm freelance') ||
+    goal.includes('tự động hoá') || goal.includes('tu dong hoa') ||
+    goal.includes('chuyển nghề') || goal.includes('chuyen nghe') ||
+    goal.includes('cơ hội nghề nghiệp')
+  );
+  const aiIntermediate = (
+    aiLevel.includes('thường xuyên') || aiLevel.includes('thuong xuyen') ||
+    aiLevel.includes('khá thành thạo') || aiLevel.includes('kha thanh thao') ||
+    aiLevel.includes('thành thạo')
+  );
+  const budgetIntermediate = (
+    budget.includes('3 - 5') || budget.includes('3-5') ||
+    budget.includes('5 - 10') || budget.includes('5-10') ||
+    budget.includes('trên 10') || budget.includes('tren 10') ||
+    budget.includes('10 triệu') || budget.includes('10 trieu')
+  );
+
+  // Intermediate: cần goal Intermediate VÀ (ai HOẶC budget Intermediate)
+  if (goalIntermediate && (aiIntermediate || budgetIntermediate)) {
+    return 'intermediate';
+  }
+  return 'newbie';
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -20,17 +53,22 @@ module.exports = async (req, res) => {
     return res.status(400).json({ ok: false, error: 'name and email required' });
   }
 
+  // Rule-based segment (deterministic, không lệ thuộc Gemini)
+  let segment = classifySegment(answers);
+
   let analysis = null;
-  let segment = 'newbie'; // default
   let analysisError = null;
   try {
     const result = await analyzeInterview(answers);
-    // result là object { segment, analysis } hoặc string (backward compat)
     if (typeof result === 'string') {
       analysis = result;
     } else {
       analysis = result.analysis;
-      segment = result.segment || 'newbie';
+      // Gemini segment chỉ override RULE nếu rule = newbie và Gemini = intermediate
+      // (tránh trường hợp Gemini bị lệ thuộc fallback default newbie)
+      if (result.segment === 'intermediate' && segment === 'newbie') {
+        segment = 'intermediate';
+      }
     }
   } catch (err) {
     analysisError = err.message;

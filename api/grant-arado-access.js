@@ -11,7 +11,7 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RESEND = process.env.RESEND_API_KEY;
-const REDIRECT_URL = 'https://arado.ink/home.html?from=bot';
+const REDIRECT_BASE = 'https://arado.ink/home.html';
 
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_KEY) {
@@ -26,10 +26,12 @@ module.exports = async (req, res) => {
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase not configured' });
   if (!RESEND) return res.status(500).json({ ok: false, error: 'Email service not configured' });
 
-  const { email, name } = req.body || {};
+  const { email, name, segment } = req.body || {};
   if (!email) return res.status(400).json({ ok: false, error: 'Missing email' });
   const e = String(email).toLowerCase().trim();
   const displayName = String(name || '').trim() || e.split('@')[0];
+  const seg = (segment === 'intermediate') ? 'intermediate' : 'newbie';
+  const REDIRECT_URL = REDIRECT_BASE + '?from=bot&segment=' + seg;
 
   // 1. Verify lead exists (any time, just check email exists in interview_leads)
   const { data: lead, error: leadErr } = await supabase

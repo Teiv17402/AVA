@@ -31,22 +31,20 @@ module.exports = async (req, res) => {
   const e = String(email).toLowerCase().trim();
   const displayName = String(name || '').trim() || e.split('@')[0];
 
-  // 1. Verify lead exists (interview within last 2h)
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  // 1. Verify lead exists (any time, just check email exists in interview_leads)
   const { data: lead, error: leadErr } = await supabase
     .from('interview_leads')
     .select('id, email, name')
     .eq('email', e)
-    .gte('created_at', twoHoursAgo)
-    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (leadErr) {
-    console.error('[lead check]', leadErr);
-    return res.status(500).json({ ok: false, error: 'Lỗi kiểm tra lead' });
+    console.error('[lead check] error:', JSON.stringify(leadErr));
+    return res.status(500).json({ ok: false, error: 'Lỗi kiểm tra lead: ' + (leadErr.message || leadErr.code || 'unknown') });
   }
   if (!lead) {
-    return res.status(400).json({ ok: false, error: 'Không tìm thấy lead — vui lòng phỏng vấn lại trong 2h gần đây.' });
+    return res.status(400).json({ ok: false, error: 'Không tìm thấy lead với email này — vui lòng phỏng vấn trước.' });
   }
 
   // 2. Create or get Supabase auth user

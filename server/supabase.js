@@ -23,7 +23,7 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
  * Keeps the same signature as the old appendInterview from sheets.js
  * so server/index.js doesn't need other changes.
  */
-async function appendInterview({ answers, submittedAt, analysis, segment }) {
+async function appendInterview({ answers, submittedAt, analysis, segment, score, scoreBreakdown }) {
   if (!supabase) {
     throw new Error('Supabase client not configured (missing env vars).');
   }
@@ -37,6 +37,8 @@ async function appendInterview({ answers, submittedAt, analysis, segment }) {
     metadata: {
       submittedAt: submittedAt || new Date().toISOString(),
       segment: segment || 'newbie',
+      score: typeof score === 'number' ? score : null,
+      scoreBreakdown: scoreBreakdown || null,
     },
   };
 

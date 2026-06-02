@@ -70,6 +70,14 @@ html, body {
   font-size: 14px;
   box-shadow: 0 4px 14px rgba(124, 92, 255, 0.4);
 }
+.logo-badge-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 4px 14px rgba(212, 175, 110, 0.4);
+  background: #1a1400;
+}
 .logo-text {
   font-size: 16px;
   letter-spacing: 0.2px;

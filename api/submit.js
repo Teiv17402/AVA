@@ -5,37 +5,61 @@
 const { analyzeInterview } = require('../server/gemini');
 const { appendInterview } = require('../server/supabase');
 
-// Rule-based segment classifier — deterministic, không phụ thuộc Gemini
+// Scoring system 0-100 — cộng điểm từ 5 yếu tố, threshold 50 → intermediate
+// Returns { segment, score, breakdown } để admin review
 function classifySegment(answers) {
-  const goal = String(answers.goal || '').toLowerCase();
   const aiLevel = String(answers.ai_level || '').toLowerCase();
+  const goal = String(answers.goal || '').toLowerCase();
   const budget = String(answers.budget || '').toLowerCase();
+  const time = String(answers.time_commit || '').toLowerCase();
+  const pain = String(answers.pain_point || '').toLowerCase();
 
-  // Intermediate signals
-  const goalIntermediate = (
-    goal.includes('kiếm thêm thu nhập') ||
-    goal.includes('làm freelance') ||
-    goal.includes('tự động hoá') || goal.includes('tu dong hoa') ||
-    goal.includes('chuyển nghề') || goal.includes('chuyen nghe') ||
-    goal.includes('cơ hội nghề nghiệp')
-  );
-  const aiIntermediate = (
-    aiLevel.includes('thường xuyên') || aiLevel.includes('thuong xuyen') ||
-    aiLevel.includes('khá thành thạo') || aiLevel.includes('kha thanh thao') ||
-    aiLevel.includes('thành thạo')
-  );
-  const budgetIntermediate = (
-    budget.includes('3 - 5') || budget.includes('3-5') ||
-    budget.includes('5 - 10') || budget.includes('5-10') ||
-    budget.includes('trên 10') || budget.includes('tren 10') ||
-    budget.includes('10 triệu') || budget.includes('10 trieu')
-  );
+  // 1. AI Level (max 30)
+  let aiScore = 0;
+  if (aiLevel.includes('thành thạo')) aiScore = 30;
+  else if (aiLevel.includes('thường xuyên') || aiLevel.includes('thuong xuyen')) aiScore = 20;
+  else if (aiLevel.includes('thử qua') || aiLevel.includes('thu qua') || aiLevel.includes('vài lần')) aiScore = 10;
+  // else (chưa bao giờ) = 0
 
-  // Intermediate: cần goal Intermediate VÀ (ai HOẶC budget Intermediate)
-  if (goalIntermediate && (aiIntermediate || budgetIntermediate)) {
-    return 'intermediate';
-  }
-  return 'newbie';
+  // 2. Goal (max 25)
+  let goalScore = 0;
+  if (goal.includes('tự động hoá') || goal.includes('tu dong hoa') || goal.includes('doanh nghiệp')) goalScore = 25;
+  else if (goal.includes('kiếm thêm') || goal.includes('kiem them') || goal.includes('freelance')) goalScore = 22;
+  else if (goal.includes('chuyển nghề') || goal.includes('chuyen nghe') || goal.includes('cơ hội nghề')) goalScore = 15;
+  else if (goal.includes('tăng năng suất') || goal.includes('tang nang suat')) goalScore = 5;
+  // else (học cho biết) = 0
+
+  // 3. Budget (max 25)
+  let budgetScore = 0;
+  if (budget.includes('trên 10') || budget.includes('tren 10') || budget.includes('nghiêm túc')) budgetScore = 25;
+  else if (budget.includes('5 - 10') || budget.includes('5-10')) budgetScore = 22;
+  else if (budget.includes('3 - 5') || budget.includes('3-5')) budgetScore = 16;
+  else if (budget.includes('1 - 3') || budget.includes('1-3')) budgetScore = 8;
+  // else (dưới 1 triệu) = 0
+
+  // 4. Time commit (max 10)
+  let timeScore = 0;
+  if (time.includes('trên 2') || time.includes('tren 2')) timeScore = 10;
+  else if (time.includes('1 - 2') || time.includes('1-2')) timeScore = 7;
+  else if (time.includes('30 - 60') || time.includes('30-60')) timeScore = 4;
+  // else (<30p) = 0
+
+  // 5. Pain point keywords (max 10) — bonus điểm nếu nhắc tới kiếm tiền/video/kênh
+  let painScore = 0;
+  const painKeywords = ['kiếm tiền', 'thu nhập', 'video', 'kênh', 'viral', 'affiliate', 'doanh thu', 'khách hàng', 'bán hàng'];
+  painKeywords.forEach(k => {
+    if (pain.includes(k)) painScore += 2;
+  });
+  if (painScore > 10) painScore = 10;
+
+  const total = aiScore + goalScore + budgetScore + timeScore + painScore;
+  const segment = total >= 50 ? 'intermediate' : 'newbie';
+
+  return {
+    segment,
+    score: total,
+    breakdown: { ai: aiScore, goal: goalScore, budget: budgetScore, time: timeScore, pain: painScore }
+  };
 }
 
 module.exports = async (req, res) => {
@@ -53,8 +77,10 @@ module.exports = async (req, res) => {
     return res.status(400).json({ ok: false, error: 'name and email required' });
   }
 
-  // Rule-based segment (deterministic, không lệ thuộc Gemini)
-  let segment = classifySegment(answers);
+  // Scoring 0-100 (deterministic, không phụ thuộc Gemini)
+  const scoring = classifySegment(answers);
+  let segment = scoring.segment;
+  console.log('[segment]', scoring);
 
   let analysis = null;
   let analysisError = null;
@@ -64,9 +90,8 @@ module.exports = async (req, res) => {
       analysis = result;
     } else {
       analysis = result.analysis;
-      // Gemini segment chỉ override RULE nếu rule = newbie và Gemini = intermediate
-      // (tránh trường hợp Gemini bị lệ thuộc fallback default newbie)
-      if (result.segment === 'intermediate' && segment === 'newbie') {
+      // Gemini hint chỉ override khi score sát ranh giới (45-54) — vùng "không chắc"
+      if (scoring.score >= 45 && scoring.score < 50 && result.segment === 'intermediate') {
         segment = 'intermediate';
       }
     }
@@ -78,7 +103,7 @@ module.exports = async (req, res) => {
   let savedToSupabase = false;
   let supabaseError = null;
   try {
-    await appendInterview({ answers, submittedAt, analysis, segment });
+    await appendInterview({ answers, submittedAt, analysis, segment, score: scoring.score, scoreBreakdown: scoring.breakdown });
     savedToSupabase = true;
   } catch (err) {
     supabaseError = err.message;
@@ -89,6 +114,8 @@ module.exports = async (req, res) => {
     ok: true,
     analysis,
     segment,
+    score: scoring.score,
+    scoreBreakdown: scoring.breakdown,
     savedToSupabase,
     analysisError,
     supabaseError,

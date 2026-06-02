@@ -58,8 +58,8 @@ async function analyzeInterview(answers) {
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
-  // Mặc định dùng 1.5-flash (ổn định, không có thinking mode tốn token)
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  // Mặc định dùng 2.5-flash (1.5 đã deprecated trên v1beta API từ 2024)
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const isThinkingModel = /^gemini-2\./.test(model);
 
   const userPrompt = `Thông tin học viên tiềm năng:\n${formatAnswersForPrompt(answers)}\n\nHãy phân tích và đưa ra lộ trình cá nhân hoá theo cấu trúc đã hướng dẫn.`;

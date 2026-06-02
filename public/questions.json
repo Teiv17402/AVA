@@ -1,5 +1,5 @@
 {
-  "intro": "Xin chào! Mình là trợ lý AI của khóa học **21D AI Challenge** 👋\n\nMình sẽ hỏi bạn vài câu ngắn (khoảng 3 phút) để hiểu nhu cầu của bạn và đề xuất lộ trình học AI phù hợp nhất.\n\nSẵn sàng bắt đầu chưa?",
+  "intro": "Xin chào! Mình là trợ lý AI của Cộng đồng VIDEO AI AFFILIATE 👋\n\nMình sẽ hỏi bạn vài câu ngắn (khoảng 3 phút) để hiểu nhu cầu của bạn và đề xuất lộ trình học AI phù hợp nhất.\n\nSẵn sàng bắt đầu chưa?",
   "questions": [
     {
       "id": "name",
@@ -90,13 +90,13 @@
     },
     {
       "id": "expectation",
-      "question": "Sau 21 ngày tham gia challenge, bạn mong muốn đạt được điều gì cụ thể?",
+      "question": "Sau khi tham gia challenge, bạn mong muốn đạt được điều gì cụ thể?",
       "type": "textarea",
       "placeholder": "Hãy viết càng cụ thể càng tốt, mình sẽ dùng thông tin này để cá nhân hoá lộ trình cho bạn."
     },
     {
       "id": "channel",
-      "question": "Bạn biết đến 21D AI Challenge qua đâu?",
+      "question": "Bạn biết đến Cộng đồng VIDEO AI AFFILIATE qua đâu?",
       "type": "choice",
       "options": [
         "Facebook",
@@ -109,5 +109,5 @@
     }
   ],
   "outro_loading": "Mình đang phân tích câu trả lời của bạn để đưa ra lộ trình phù hợp nhất...",
-  "outro_success": "🎉 Cảm ơn {name} đã chia sẻ!\n\nMình đã ghi nhận đầy đủ thông tin. Đội ngũ 21D AI Challenge sẽ liên hệ với bạn trong vòng 24h để gửi lộ trình học cá nhân hoá.\n\nDưới đây là phân tích sơ bộ về bạn:"
+  "outro_success": "🎉 Cảm ơn {name} đã chia sẻ!\n\nMình đã ghi nhận đầy đủ thông tin. Đội ngũ Cộng đồng VIDEO AI AFFILIATE sẽ liên hệ với bạn trong vòng 24h để gửi lộ trình học cá nhân hoá.\n\nDưới đây là phân tích sơ bộ về bạn:"
 }

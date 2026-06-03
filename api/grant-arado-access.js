@@ -11,7 +11,7 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RESEND = process.env.RESEND_API_KEY;
-const REDIRECT_BASE = 'https://arado.ink/home.html';
+const REDIRECT_BASE = 'https://arado.ink/from-bot.html';
 
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_KEY) {
@@ -31,7 +31,10 @@ module.exports = async (req, res) => {
   const e = String(email).toLowerCase().trim();
   const displayName = String(name || '').trim() || e.split('@')[0];
   const seg = (segment === 'intermediate') ? 'intermediate' : 'newbie';
-  const REDIRECT_URL = REDIRECT_BASE + '?from=bot&segment=' + seg;
+  const REDIRECT_URL = REDIRECT_BASE +
+    '?from=bot&segment=' + seg +
+    '&email=' + encodeURIComponent(e) +
+    '&name=' + encodeURIComponent(displayName);
 
   // 1. Verify lead exists (any time, just check email exists in interview_leads)
   const { data: lead, error: leadErr } = await supabase
@@ -110,7 +113,7 @@ module.exports = async (req, res) => {
           <div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:540px;margin:0 auto;padding:24px;background:#0a0a0a;color:#eee">
             <h2 style="color:#d4af6e;margin:0 0 12px">Chào ${displayName}! 👋</h2>
             <p style="font-size:15px;line-height:1.6;color:#ccc;margin:0 0 18px">
-              Cảm ơn bạn đã hoàn thành phỏng vấn vào <b>21D AI Challenge</b>.<br>
+              Cảm ơn bạn đã hoàn thành phỏng vấn vào <b>Cộng đồng VIDEO AI AFFILIATE</b>.<br>
               Bấm nút bên dưới để vào dashboard học ngay — <b>không cần tạo mật khẩu</b>:
             </p>
             <p style="text-align:center;margin:28px 0">

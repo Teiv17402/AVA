@@ -1,4 +1,4 @@
-/* 21D AI Challenge - Interview Bot
+/* Cộng đồng VIDEO AI AFFILIATE - Interview Bot
  * Frontend logic: load questions, render chat flow, submit to backend.
  */
 
@@ -19,6 +19,37 @@ const state = {
 // Strict validators
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_RE = /^(?:\+?84|0)(?:3[2-9]|5[2|5|6|8|9]|7[06-9]|8[1-9]|9[0-9]|2[0-9])\d{7}$/;
+
+// ============================================
+// FUNNEL TRACKING — gửi event tới arado.ink
+// ============================================
+const FUNNEL_API = 'https://arado.ink/api/funnel-track';
+function getFunnelSid() {
+  let sid = localStorage.getItem('funnel_sid');
+  if (!sid) {
+    sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('funnel_sid', sid);
+  }
+  return sid;
+}
+function trackFunnel(eventType, email, metadata) {
+  try {
+    fetch(FUNNEL_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_type: eventType,
+        email: email || null,
+        session_id: getFunnelSid(),
+        referrer: document.referrer || location.href,
+        metadata: metadata || {}
+      })
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+// Track view_landing ngay khi page load
+trackFunnel('view_landing', null, { ua: navigator.userAgent.slice(0, 100) });
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -132,6 +163,14 @@ function shake(el) {
 
 function renderTextInput(q) {
   clearComposer();
+
+  // FUNNEL: nếu user vừa đến bước nhập email → track 'view_email_step' (Step 2)
+  // Không cần bấm Gửi — chỉ cần thấy form email là tính.
+  if (q.type === 'email' && !window.__funnelEmailStepTracked) {
+    window.__funnelEmailStepTracked = true;
+    trackFunnel('view_email_step', null, { question_id: q.id || null });
+  }
+
   const wrap = document.createElement('div');
   wrap.style.width = '100%';
 
@@ -307,6 +346,11 @@ async function finish() {
     const data = await res.json();
     analysis = data.analysis;
     if (data.segment === 'intermediate' || data.segment === 'newbie') segment = data.segment;
+    // Track funnel: complete_interview (Step 3) — gửi sau khi submit thành công
+    trackFunnel('complete_interview', state.answers?.email || null, {
+      segment,
+      questions_count: Object.keys(state.answers || {}).length
+    });
   } catch (err) {
     console.error('submit failed', err);
   }
@@ -465,6 +509,9 @@ if (typeof ResizeObserver !== 'undefined') {
 // OTP EMAIL VERIFICATION
 // ============================================
 async function requestOtpAndVerify(email, emailQ, sendBtn) {
+  // Track funnel: submit_email (sub-metric — user đã nhập email + bấm Gửi)
+  // Step 2 chính trong dashboard = view_email_step (đến màn email, kể cả không submit)
+  trackFunnel('submit_email', email);
   // Disable original Send button while sending OTP
   if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳ Đang gửi OTP...'; }
   let r, j;
@@ -596,19 +643,19 @@ function renderOtpInput(email, emailQ) {
       const j = await r.json();
       if (j.ok) {
         statusEl.style.color = '#16a34a';
-        statusEl.textContent = '✓ Đã gửi mã mới';
-        startCooldown();
+        statusEl.textContent = 'Đã gửi mã mới! Kiểm tra email của bạn.';
       } else {
         statusEl.style.color = '#ef4444';
-        statusEl.textContent = '⚠ ' + (j.error || 'Lỗi');
-        resendBtn.disabled = false;
-        resendBtn.textContent = '🔄 Thử lại';
+        statusEl.textContent = j.error || 'Không gửi được mã mới.';
       }
     } catch (e) {
       statusEl.style.color = '#ef4444';
-      statusEl.textContent = '⚠ Lỗi mạng';
-      resendBtn.disabled = false;
-      resendBtn.textContent = '🔄 Thử lại';
+      statusEl.textContent = 'Lỗi mạng: ' + e.message;
     }
+    // Cho phép resend lại sau 60s
+    setTimeout(() => {
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Gửi lại mã';
+    }, 60000);
   });
 }
